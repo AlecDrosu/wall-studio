@@ -1,0 +1,8 @@
+node_modules/
+dist/
+*.local
+
+# SQLite database (created at runtime by the server)
+wall-studio.db
+wall-studio.db-shm
+wall-studio.db-wal

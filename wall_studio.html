@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gallery Wall Studio</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Hanken+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+
+:root{
+  --paper:#EFE8DA; --panel:#FBF8F1; --wall:#FCFAF4;
+  --ink:#2B2620; --muted:#8E8473; --faint:#B4AA98;
+  --line:#E3DBCB; --hair:#D9D0BE; --rule:#BBB19E;
+  --grid-minor:#EBE4D4; --grid-major:#DCD2BD;
+  --coral:#E59A82; --coral-edge:#C2654A; --coral-ink:#7A3320; --coral-soft:#FBEEE8;
+  --blue:#A6C3D6; --blue-edge:#5A86A1; --blue-ink:#244B5D; --blue-soft:#F1F6FA;
+  --dim:#2F7E86; --guide:#C7613B; --danger:#C0392B;
+  --display:'Fraunces',Georgia,'Times New Roman',serif;
+  --ui:'Hanken Grotesk',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:'Space Mono','SFMono-Regular',ui-monospace,Menlo,monospace;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;}
+body{
+  font-family:var(--ui); color:var(--ink); background:var(--paper);
+  background-image:
+    radial-gradient(1200px 600px at 80% -10%, rgba(255,255,255,.55), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgba(199,97,59,.06), transparent 55%);
+  -webkit-font-smoothing:antialiased; line-height:1.5;
+}
+.app{max-width:1180px; margin:0 auto; padding:26px 20px 56px;}
+
+header.head{display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:14px; margin-bottom:16px;}
+.brand h1{font-family:var(--display); font-weight:600; font-size:30px; letter-spacing:-.015em; margin:0; line-height:1.05;}
+.brand h1 em{font-style:italic; color:var(--coral-edge);}
+.brand p{margin:5px 0 0; color:var(--muted); font-size:13.5px; max-width:50ch;}
+.envchip{font-family:var(--mono); font-size:12px; color:var(--ink); background:var(--panel);
+  border:1px solid var(--hair); border-radius:10px; padding:8px 12px; white-space:nowrap;}
+.envchip b{color:var(--coral-edge);}
+
+.toolbar{display:flex; flex-wrap:wrap; gap:8px 10px; align-items:center; margin:0 0 16px;
+  padding:11px 13px; background:var(--panel); border:1px solid var(--hair); border-radius:14px;}
+.group{display:flex; align-items:center; gap:6px;}
+.group + .group{padding-left:10px; border-left:1px solid var(--line);}
+.lbl{font-size:11px; text-transform:uppercase; letter-spacing:.07em; color:var(--faint); margin-right:2px;}
+button.btn{font-family:var(--ui); font-size:13px; font-weight:600; color:var(--ink);
+  background:#fff; border:1px solid var(--hair); border-radius:9px; padding:7px 12px; cursor:pointer;
+  transition:transform .08s ease, border-color .12s ease, background .12s ease;}
+button.btn:hover{border-color:var(--coral-edge); transform:translateY(-1px);}
+button.btn:active{transform:translateY(0);}
+button.btn.ghost{background:transparent;}
+.toggle{display:inline-flex; align-items:center; gap:7px; font-size:13px; cursor:pointer; user-select:none; color:var(--ink);}
+.toggle input{appearance:none; width:34px; height:19px; border-radius:99px; background:var(--hair);
+  position:relative; cursor:pointer; transition:background .15s ease; flex:none;}
+.toggle input:checked{background:var(--dim);}
+.toggle input::after{content:""; position:absolute; top:2px; left:2px; width:15px; height:15px; border-radius:50%;
+  background:#fff; transition:transform .15s ease; box-shadow:0 1px 2px rgba(0,0,0,.2);}
+.toggle input:checked::after{transform:translateX(15px);}
+.zoom{display:inline-flex; align-items:center; gap:0;}
+.zoom button{width:30px; height:30px; padding:0; font-size:17px; line-height:1; display:grid; place-items:center;}
+.zoom button:first-child{border-radius:9px 0 0 9px;}
+.zoom button:last-child{border-radius:0 9px 9px 0; border-left:none;}
+.zoom .zval{font-family:var(--mono); font-size:11.5px; color:var(--muted); padding:0 9px;}
+
+.layout{display:grid; grid-template-columns:1fr 312px; gap:20px; align-items:start;}
+@media (max-width:880px){ .layout{grid-template-columns:1fr;} }
+
+/* ---- stage ---- */
+.stage-card{background:var(--panel); border:1px solid var(--hair); border-radius:16px; padding:14px;
+  box-shadow:0 1px 2px rgba(0,0,0,.03); overflow:auto;}
+.stage{display:grid; width:max-content; margin:0 auto;}
+.corner{background:transparent;}
+.ruler{position:relative; color:var(--rule);}
+.ruler svg{display:block;}
+.wall{position:relative; background:var(--wall); border:1px solid var(--hair);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.6), 0 1px 0 rgba(0,0,0,.02);}
+.overlay{position:absolute; inset:0; pointer-events:none; overflow:visible;}
+
+.frame{position:absolute; border-radius:4px; cursor:grab; touch-action:none; user-select:none;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;
+  border:2px solid var(--blue-edge); background:var(--blue-soft);
+  box-shadow:0 1px 2px rgba(0,0,0,.10), inset 0 0 0 4px var(--blue);
+  transition:box-shadow .12s ease;
+  animation:pop .5s cubic-bezier(.2,.9,.3,1.2) both;}
+@keyframes pop{from{opacity:0; transform:scale(.92);} to{opacity:1; transform:scale(1);}}
+.frame:hover{box-shadow:0 5px 14px rgba(0,0,0,.14), inset 0 0 0 4px var(--blue);}
+.frame.dragging{cursor:grabbing; z-index:60 !important;}
+.frame.sel{outline:2px solid var(--ink); outline-offset:2px; z-index:50;}
+.frame .fnum{font-family:var(--display); font-weight:600; color:var(--blue-ink); line-height:1;}
+.frame .fsz{font-family:var(--mono); font-size:10px; color:var(--blue-ink); opacity:.7; margin-top:3px;}
+.frame.big{border-color:var(--coral-edge); background:var(--coral-soft);
+  box-shadow:0 1px 2px rgba(0,0,0,.10), inset 0 0 0 5px var(--coral);}
+.frame.big:hover{box-shadow:0 6px 16px rgba(0,0,0,.15), inset 0 0 0 5px var(--coral);}
+.frame.big .fnum{color:var(--coral-ink);} .frame.big .fsz{color:var(--coral-ink);}
+.frame.overlap{border-color:var(--danger) !important; box-shadow:0 0 0 2px var(--danger), inset 0 0 0 4px rgba(192,57,43,.25) !important;}
+
+/* ---- sidebar ---- */
+.side{display:flex; flex-direction:column; gap:16px; position:sticky; top:16px;}
+.panel{background:var(--panel); border:1px solid var(--hair); border-radius:16px; padding:15px 16px; box-shadow:0 1px 2px rgba(0,0,0,.03);}
+.panel h2{font-family:var(--display); font-weight:600; font-size:16px; margin:0 0 2px;}
+.panel .hint{color:var(--muted); font-size:12px; margin:0 0 12px;}
+
+.sel-head{display:flex; align-items:center; gap:11px; margin-bottom:13px;}
+.sel-badge{width:42px; height:42px; border-radius:9px; display:grid; place-items:center; flex:none;
+  font-family:var(--display); font-weight:700; font-size:20px; color:var(--blue-ink);
+  background:var(--blue-soft); border:2px solid var(--blue-edge);}
+.sel-badge.big{color:var(--coral-ink); background:var(--coral-soft); border-color:var(--coral-edge);}
+.sel-head .sz{font-family:var(--mono); font-size:12.5px; color:var(--ink);}
+.sel-head .szsub{font-size:11.5px; color:var(--muted);}
+
+.pos-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:13px;}
+.cell{background:#fff; border:1px solid var(--line); border-radius:9px; padding:8px 10px;}
+.cell .k{font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--faint);}
+.cell .v{font-family:var(--mono); font-size:15px; color:var(--ink); margin-top:1px;}
+
+.cross{display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:auto auto auto; gap:5px;
+  align-items:center; justify-items:center; background:#fff; border:1px solid var(--line); border-radius:11px; padding:11px 9px;}
+.cross .mid{display:grid; place-items:center; width:100%;}
+.gapbox{text-align:center; min-width:60px;}
+.gapbox .g{font-family:var(--mono); font-size:14px; color:var(--dim); font-weight:700;}
+.gapbox .to{font-size:10px; color:var(--muted); margin-top:1px;}
+.cross .ctr{font-family:var(--display); font-size:12px; color:var(--faint); font-style:italic;}
+.arrow{color:var(--faint); font-size:13px;}
+
+.summary{display:flex; flex-direction:column; gap:9px;}
+.srow{display:flex; align-items:center; justify-content:space-between; font-size:13px;}
+.srow .k{color:var(--muted);} .srow .v{font-family:var(--mono); color:var(--ink);}
+.warn{display:none; align-items:center; gap:8px; font-size:12.5px; color:var(--danger);
+  background:rgba(192,57,43,.08); border:1px solid rgba(192,57,43,.25); border-radius:9px; padding:8px 10px;}
+.warn.show{display:flex;}
+.ok{display:none; align-items:center; gap:8px; font-size:12.5px; color:#2c6e49;
+  background:rgba(44,110,73,.08); border:1px solid rgba(44,110,73,.22); border-radius:9px; padding:8px 10px;}
+.ok.show{display:flex;}
+
+table.allpos{width:100%; border-collapse:collapse; font-size:12.5px;}
+table.allpos th{font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--faint); text-align:left; padding:4px 6px; font-weight:600;}
+table.allpos td{padding:5px 6px; border-top:1px solid var(--line); font-family:var(--mono); color:var(--ink);}
+table.allpos tr{cursor:pointer;}
+table.allpos tr:hover td{background:#fff;}
+table.allpos tr.active td{background:#fff;}
+table.allpos td.idc{font-family:var(--ui); font-weight:700;}
+.dot{display:inline-block; width:9px; height:9px; border-radius:3px; margin-right:6px; vertical-align:-1px;
+  background:var(--blue); border:1.5px solid var(--blue-edge);}
+.dot.big{background:var(--coral); border-color:var(--coral-edge);}
+
+.legend{display:flex; gap:16px; align-items:center; flex-wrap:wrap; color:var(--muted); font-size:12px; margin-top:14px;}
+.legend span{display:inline-flex; align-items:center; gap:7px;}
+.sw{width:13px; height:13px; border-radius:4px;}
+.sw.c{background:var(--coral); border:1.5px solid var(--coral-edge);}
+.sw.b{background:var(--blue); border:1.5px solid var(--blue-edge);}
+.foot{margin-top:14px; color:var(--faint); font-size:11.5px; text-align:center;}
+.kbd{font-family:var(--mono); font-size:11px; background:#fff; border:1px solid var(--hair); border-bottom-width:2px; border-radius:5px; padding:1px 5px; color:var(--ink);}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="head">
+    <div class="brand">
+      <h1>Gallery Wall <em>Studio</em></h1>
+      <p>Drag frames anywhere inside the fixed wall. Edges snap to align; positions, gaps and distances recalculate live as you move.</p>
+    </div>
+    <div class="envchip">WALL &nbsp;<b>102&#8243; &times; 44&#8243;</b>&nbsp; (8.5&#8242; wide &times; 44&#8243; tall)</div>
+  </header>
+
+  <div class="toolbar">
+    <div class="group">
+      <span class="lbl">Start</span>
+      <button class="btn" data-preset="cascade">Cascade</button>
+      <button class="btn" data-preset="bookend">Bookend</button>
+      <button class="btn" data-preset="balanced">Balanced</button>
+    </div>
+    <div class="group">
+      <button class="btn ghost" id="flip">&#8646; Flip L/R</button>
+      <button class="btn ghost" id="reset">&#8635; Reset</button>
+    </div>
+    <div class="group">
+      <label class="toggle"><input type="checkbox" id="t-snap" checked> Snap to align</label>
+      <label class="toggle"><input type="checkbox" id="t-grid"> &#188;&#8243; grid</label>
+      <label class="toggle"><input type="checkbox" id="t-meas" checked> Measurements</label>
+    </div>
+    <div class="group">
+      <span class="lbl">Zoom</span>
+      <span class="zoom">
+        <button class="btn" id="zout">&minus;</button>
+        <span class="zval" id="zval">100%</span>
+        <button class="btn" id="zin">+</button>
+      </span>
+    </div>
+  </div>
+
+  <div class="layout">
+    <!-- STAGE -->
+    <div class="stage-card">
+      <div class="stage" id="stage">
+        <div class="corner"></div>
+        <div class="ruler" id="ruler-top"></div>
+        <div class="ruler" id="ruler-left"></div>
+        <div class="wall" id="wall">
+          <svg class="overlay" id="overlay"></svg>
+          <!-- frames injected here -->
+        </div>
+      </div>
+      <div class="legend">
+        <span><span class="sw c"></span> Big frame (#1)</span>
+        <span><span class="sw b"></span> Other 8 frames</span>
+        <span>teal lines = live distances</span>
+        <span>orange = alignment guide</span>
+      </div>
+    </div>
+
+    <!-- SIDEBAR -->
+    <div class="side">
+      <div class="panel">
+        <h2 id="sel-title">No frame selected</h2>
+        <p class="hint" id="sel-hint">Click or drag a frame to inspect it.</p>
+        <div id="sel-body" style="display:none">
+          <div class="sel-head">
+            <div class="sel-badge" id="sel-badge">1</div>
+            <div>
+              <div class="sz" id="sel-size">&mdash;</div>
+              <div class="szsub">frame size (W &times; H)</div>
+            </div>
+          </div>
+          <div class="pos-grid">
+            <div class="cell"><div class="k">From left edge</div><div class="v" id="sel-x">&mdash;</div></div>
+            <div class="cell"><div class="k">From top edge</div><div class="v" id="sel-y">&mdash;</div></div>
+          </div>
+          <div class="cross">
+            <div></div>
+            <div class="gapbox"><div class="g" id="g-top">&mdash;</div><div class="to" id="g-top-to"></div><div class="arrow">&#9650;</div></div>
+            <div></div>
+            <div class="gapbox" style="grid-row:2"><div class="arrow">&#9664;</div><div class="g" id="g-left">&mdash;</div><div class="to" id="g-left-to"></div></div>
+            <div class="mid"><div class="ctr">gaps to<br>neighbors</div></div>
+            <div class="gapbox" style="grid-row:2"><div class="arrow">&#9654;</div><div class="g" id="g-right">&mdash;</div><div class="to" id="g-right-to"></div></div>
+            <div></div>
+            <div class="gapbox"><div class="arrow">&#9660;</div><div class="g" id="g-bot">&mdash;</div><div class="to" id="g-bot-to"></div></div>
+            <div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Arrangement</h2>
+        <p class="hint">Live summary across all 9 frames.</p>
+        <div class="summary">
+          <div class="srow"><span class="k">Frames span</span><span class="v" id="s-span">&mdash;</span></div>
+          <div class="srow"><span class="k">Closest spacing</span><span class="v" id="s-min">&mdash;</span></div>
+          <div class="warn" id="s-warn">&#9888; <span id="s-warn-txt">frames overlapping</span></div>
+          <div class="ok" id="s-ok">&#10003; no overlaps &mdash; nothing touching</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>All positions</h2>
+        <p class="hint">Top-left corner of each frame. Tap a row to select.</p>
+        <table class="allpos">
+          <thead><tr><th>#</th><th>X &#8595;left</th><th>Y &#8595;top</th><th>W&times;H</th></tr></thead>
+          <tbody id="allpos-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <p class="foot">
+    Arrow keys nudge the selected frame <span class="kbd">&#188;&#8243;</span> &middot; hold <span class="kbd">Shift</span> for <span class="kbd">1&#8243;</span>.
+    All sizes read height &times; width. Frames can't leave the 102&#8243; &times; 44&#8243; wall.
+  </p>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  // ---- data (height, width) in inches ----
+  var DIM = {1:[44,33.5],2:[17.5,12.25],3:[18,22],4:[15,12],5:[5,13.25],6:[8.25,10],7:[18,26],8:[9,19],9:[10.5,12.25]};
+  var IDS = [1,2,3,4,5,6,7,8,9];
+  var FR = {}; IDS.forEach(function(i){ FR[i] = {w:DIM[i][1], h:DIM[i][0]}; });
+  var WIN = 102, HIN = 44, GAP = 2.75;
+
+  // ---- state ----
+  var pos = {};                 // id -> {x,y} inches (top-left)
+  var PXIN = 7;                 // pixels per inch (zoom)
+  var manualZoom = false;
+  var selected = null;
+  var currentPreset = "cascade";
+  var snapAlign = true, snapGrid = false, showMeas = true;
+  var dragId = null, grabDX = 0, grabDY = 0, activeGuides = [];
+
+  // ---- elements ----
+  var wall = document.getElementById('wall');
+  var overlay = document.getElementById('overlay');
+  var rTop = document.getElementById('ruler-top');
+  var rLeft = document.getElementById('ruler-left');
+  var frameEls = {};
+
+  // ---- helpers ----
+  function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
+  var EI = ['','\u215b','\u00bc','\u215c','\u00bd','\u215d','\u00be','\u215e'];
+  function frac(v){
+    var s = v<0?'-':''; v = Math.abs(v);
+    var whole = Math.floor(v + 1e-6);
+    var e = Math.round((v - whole)*8);
+    if(e===8){ whole++; e=0; }
+    var g = EI[e];
+    if(whole===0 && g==='') return s+'0';
+    if(g==='') return s+whole;
+    if(whole===0) return s+g;
+    return s+whole+g;
+  }
+  function inch(v){ return frac(v)+'\u2033'; }
+  function rectOf(id){ var p=pos[id], f=FR[id]; return {l:p.x, t:p.y, r:p.x+f.w, b:p.y+f.h}; }
+
+  // ---- preset layout (columns) ----
+  var PRESETS = {
+    cascade:  [[1],[7,8],[3,4,5],[2,6,9]],
+    bookend:  [[1],[2,6,9],[3,4,5],[7,8]],
+    balanced: [[1],[2,5,9],[3,7],[4,6,8]]
+  };
+  function layoutColumns(order){
+    var res={}, x=0;
+    order.forEach(function(col){
+      var cw = Math.max.apply(null, col.map(function(f){return FR[f].w;}));
+      var stack = col.reduce(function(s,f){return s+FR[f].h;},0) + (col.length-1)*GAP;
+      var y = (HIN - stack)/2;
+      col.forEach(function(f){
+        res[f] = {x: x + (cw-FR[f].w)/2, y: y};
+        y += FR[f].h + GAP;
+      });
+      x += cw + GAP;
+    });
+    return res;
+  }
+  function applyPreset(name){
+    currentPreset = name;
+    var L = layoutColumns(PRESETS[name]);
+    IDS.forEach(function(i){ pos[i] = {x: clamp(L[i].x,0,WIN-FR[i].w), y: clamp(L[i].y,0,HIN-FR[i].h)}; });
+    renderAll();
+  }
+  function flip(){
+    IDS.forEach(function(i){ pos[i].x = WIN - (pos[i].x + FR[i].w); });
+    renderAll();
+  }
+
+  // ---- rulers ----
+  function buildRulers(){
+    var w = WIN*PXIN, h = HIN*PXIN, RW = 22;
+    var t = '<svg width="'+w+'" height="'+RW+'" viewBox="0 0 '+w+' '+RW+'">';
+    for(var i=0;i<=WIN;i++){
+      var x = i*PXIN;
+      var major = (i%6===0);
+      var y1 = major?6:13;
+      t += '<line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+RW+'" stroke="var(--rule)" stroke-width="'+(major?1:0.7)+'"/>';
+      if(major && i%12===0) t += '<text x="'+(x+2)+'" y="9" font-family="var(--mono)" font-size="8.5" fill="var(--muted)">'+i+'</text>';
+    }
+    t += '</svg>';
+    rTop.innerHTML = t;
+
+    var l = '<svg width="'+RW+'" height="'+h+'" viewBox="0 0 '+RW+' '+h+'">';
+    for(var j=0;j<=HIN;j++){
+      var y = j*PXIN;
+      var maj = (j%6===0);
+      var x1 = maj?6:13;
+      l += '<line x1="'+x1+'" y1="'+y+'" x2="'+RW+'" y2="'+y+'" stroke="var(--rule)" stroke-width="'+(maj?1:0.7)+'"/>';
+      if(maj && j%12===0 && j>0) l += '<text x="2" y="'+(y-2)+'" font-family="var(--mono)" font-size="8.5" fill="var(--muted)">'+j+'</text>';
+    }
+    l += '</svg>';
+    rLeft.innerHTML = l;
+  }
+
+  // ---- wall sizing + grid ----
+  function sizeWall(){
+    var w = WIN*PXIN, h = HIN*PXIN;
+    wall.style.width = w+'px'; wall.style.height = h+'px';
+    overlay.setAttribute('width', w); overlay.setAttribute('height', h);
+    overlay.setAttribute('viewBox','0 0 '+w+' '+h);
+    var mn = PXIN, mj = 6*PXIN;
+    wall.style.backgroundImage =
+      'linear-gradient(var(--grid-minor) 1px, transparent 1px),'+
+      'linear-gradient(90deg, var(--grid-minor) 1px, transparent 1px),'+
+      'linear-gradient(var(--grid-major) 1px, transparent 1px),'+
+      'linear-gradient(90deg, var(--grid-major) 1px, transparent 1px)';
+    wall.style.backgroundSize = mn+'px '+mn+'px,'+mn+'px '+mn+'px,'+mj+'px '+mj+'px,'+mj+'px '+mj+'px';
+  }
+
+  // ---- build frames once ----
+  function buildFrames(){
+    IDS.forEach(function(id, idx){
+      var el = document.createElement('div');
+      el.className = 'frame' + (id===1?' big':'');
+      el.setAttribute('data-id', id);
+      el.style.animationDelay = (idx*45)+'ms';
+      var num = document.createElement('div'); num.className='fnum'; num.textContent = id;
+      var sz = document.createElement('div'); sz.className='fsz';
+      el.appendChild(num); el.appendChild(sz);
+      el.addEventListener('pointerdown', onDown);
+      wall.appendChild(el);
+      frameEls[id] = {el:el, num:num, sz:sz};
+    });
+  }
+
+  function updateFrames(){
+    var ov = overlapSet();
+    IDS.forEach(function(id){
+      var f = FR[id], p = pos[id], ref = frameEls[id], el = ref.el;
+      el.style.left = (p.x*PXIN)+'px';
+      el.style.top  = (p.y*PXIN)+'px';
+      el.style.width = (f.w*PXIN)+'px';
+      el.style.height = (f.h*PXIN)+'px';
+      var wp = f.w*PXIN, hp = f.h*PXIN;
+      ref.num.style.fontSize = Math.max(13, Math.min(34, Math.min(wp,hp)*0.42))+'px';
+      if(id===1){ ref.sz.textContent = 'big'; ref.sz.style.display = (hp>46)?'block':'none'; }
+      else { ref.sz.textContent = frac(f.w)+'\u00d7'+frac(f.h); ref.sz.style.display = (wp>58 && hp>40)?'block':'none'; }
+      el.classList.toggle('overlap', ov.has(id));
+      el.classList.toggle('sel', selected===id);
+    });
+  }
+
+  // ---- overlap + spacing ----
+  function intersect(a,b){ return a.l < b.r-0.01 && a.r > b.l+0.01 && a.t < b.b-0.01 && a.b > b.t+0.01; }
+  function overlapSet(){
+    var s = new Set();
+    for(var x=0;x<IDS.length;x++) for(var y=x+1;y<IDS.length;y++){
+      var a=rectOf(IDS[x]), b=rectOf(IDS[y]);
+      if(intersect(a,b)){ s.add(IDS[x]); s.add(IDS[y]); }
+    }
+    return s;
+  }
+  function closestSpacing(){
+    var best = Infinity;
+    for(var x=0;x<IDS.length;x++) for(var y=x+1;y<IDS.length;y++){
+      var a=rectOf(IDS[x]), b=rectOf(IDS[y]);
+      var dx = Math.max(0, Math.max(b.l-a.r, a.l-b.r));
+      var dy = Math.max(0, Math.max(b.t-a.b, a.t-b.b));
+      var vov = Math.min(a.b,b.b)-Math.max(a.t,b.t);
+      var hov = Math.min(a.r,b.r)-Math.max(a.l,b.l);
+      var g;
+      if(vov>0 && hov<=0) g = Math.max(b.l-a.r, a.l-b.r);
+      else if(hov>0 && vov<=0) g = Math.max(b.t-a.b, a.t-b.b);
+      else g = Math.sqrt(dx*dx+dy*dy);
+      if(g<best) best=g;
+    }
+    return best;
+  }
+
+  // ---- gaps to nearest neighbor / wall on each side ----
+  function computeGaps(id){
+    var a = rectOf(id), out = {};
+    function scan(side){
+      var best = Infinity, to='wall', other=null;
+      IDS.forEach(function(j){
+        if(j===id) return;
+        var b = rectOf(j), g;
+        if(side==='right'||side==='left'){
+          var vov = Math.min(a.b,b.b)-Math.max(a.t,b.t);
+          if(vov<=0.01) return;
+          if(side==='right' && b.l >= a.r-0.01){ g=b.l-a.r; }
+          else if(side==='left' && b.r <= a.l+0.01){ g=a.l-b.r; }
+          else return;
+        } else {
+          var hov = Math.min(a.r,b.r)-Math.max(a.l,b.l);
+          if(hov<=0.01) return;
+          if(side==='bottom' && b.t >= a.b-0.01){ g=b.t-a.b; }
+          else if(side==='top' && b.b <= a.t+0.01){ g=a.t-b.b; }
+          else return;
+        }
+        if(g<best){ best=g; to=j; other=b; }
+      });
+      var wallG = side==='right'?(WIN-a.r):side==='left'?a.l:side==='top'?a.t:(HIN-a.b);
+      if(wallG < best){ best=wallG; to='wall'; other=null; }
+      return {gap:best, to:to, other:other};
+    }
+    out.right=scan('right'); out.left=scan('left'); out.top=scan('top'); out.bottom=scan('bottom');
+    return out;
+  }
+
+  // ---- overlay drawing (dimension lines + alignment guides) ----
+  function svgEl(tag, attrs){
+    var e = document.createElementNS('http://www.w3.org/2000/svg', tag);
+    for(var k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+  function dimLine(x1,y1,x2,y2,label){
+    var g = svgEl('g',{});
+    g.appendChild(svgEl('line',{x1:x1,y1:y1,x2:x2,y2:y2,stroke:'var(--dim)','stroke-width':1.4}));
+    // end ticks (perpendicular)
+    var horiz = Math.abs(y2-y1) < 0.5;
+    if(horiz){
+      g.appendChild(svgEl('line',{x1:x1,y1:y1-4,x2:x1,y2:y1+4,stroke:'var(--dim)','stroke-width':1.2}));
+      g.appendChild(svgEl('line',{x1:x2,y1:y2-4,x2:x2,y2:y2+4,stroke:'var(--dim)','stroke-width':1.2}));
+    } else {
+      g.appendChild(svgEl('line',{x1:x1-4,y1:y1,x2:x1+4,y2:y1,stroke:'var(--dim)','stroke-width':1.2}));
+      g.appendChild(svgEl('line',{x1:x2-4,y1:y2,x2:x2+4,y2:y2,stroke:'var(--dim)','stroke-width':1.2}));
+    }
+    var mx=(x1+x2)/2, my=(y1+y2)/2;
+    var tw = label.length*6.2 + 8, th = 15;
+    g.appendChild(svgEl('rect',{x:mx-tw/2,y:my-th/2,width:tw,height:th,rx:4,fill:'var(--wall)',stroke:'var(--line)','stroke-width':0.8}));
+    var t = svgEl('text',{x:mx,y:my+0.5,'text-anchor':'middle','dominant-baseline':'central','font-family':'var(--mono)','font-size':10,fill:'var(--dim)','font-weight':700});
+    t.textContent = label;
+    g.appendChild(t);
+    return g;
+  }
+  function renderOverlay(){
+    while(overlay.firstChild) overlay.removeChild(overlay.firstChild);
+    // alignment guides while dragging
+    activeGuides.forEach(function(gd){
+      if(gd.axis==='x'){
+        overlay.appendChild(svgEl('line',{x1:gd.v*PXIN,y1:0,x2:gd.v*PXIN,y2:HIN*PXIN,stroke:'var(--guide)','stroke-width':1,'stroke-dasharray':'4 3'}));
+      } else {
+        overlay.appendChild(svgEl('line',{x1:0,y1:gd.v*PXIN,x2:WIN*PXIN,y2:gd.v*PXIN,stroke:'var(--guide)','stroke-width':1,'stroke-dasharray':'4 3'}));
+      }
+    });
+    if(!showMeas || selected===null) return;
+    var a = rectOf(selected), gp = computeGaps(selected);
+    // RIGHT
+    (function(){ var s=gp.right; var y = s.other ? (Math.max(a.t,s.other.t)+Math.min(a.b,s.other.b))/2 : (a.t+a.b)/2;
+      overlay.appendChild(dimLine(a.r*PXIN, y*PXIN, (a.r+s.gap)*PXIN, y*PXIN, frac(s.gap)+'\u2033')); })();
+    // LEFT
+    (function(){ var s=gp.left; var y = s.other ? (Math.max(a.t,s.other.t)+Math.min(a.b,s.other.b))/2 : (a.t+a.b)/2;
+      overlay.appendChild(dimLine(a.l*PXIN, y*PXIN, (a.l-s.gap)*PXIN, y*PXIN, frac(s.gap)+'\u2033')); })();
+    // TOP
+    (function(){ var s=gp.top; var x = s.other ? (Math.max(a.l,s.other.l)+Math.min(a.r,s.other.r))/2 : (a.l+a.r)/2;
+      overlay.appendChild(dimLine(x*PXIN, a.t*PXIN, x*PXIN, (a.t-s.gap)*PXIN, frac(s.gap)+'\u2033')); })();
+    // BOTTOM
+    (function(){ var s=gp.bottom; var x = s.other ? (Math.max(a.l,s.other.l)+Math.min(a.r,s.other.r))/2 : (a.l+a.r)/2;
+      overlay.appendChild(dimLine(x*PXIN, a.b*PXIN, x*PXIN, (a.b+s.gap)*PXIN, frac(s.gap)+'\u2033')); })();
+  }
+
+  // ---- sidebar ----
+  function setText(id,v){ var e=document.getElementById(id); if(e) e.textContent=v; }
+  function gapToTxt(s){ return s.to==='wall' ? 'wall' : ('frame '+s.to); }
+  function renderSidebar(){
+    // selected
+    var body = document.getElementById('sel-body');
+    if(selected===null){
+      document.getElementById('sel-title').textContent='No frame selected';
+      document.getElementById('sel-hint').style.display='block';
+      body.style.display='none';
+    } else {
+      var id=selected, f=FR[id], p=pos[id], gp=computeGaps(id);
+      document.getElementById('sel-title').textContent = id===1?'Frame 1 \u2014 the big one':('Frame '+id);
+      document.getElementById('sel-hint').style.display='none';
+      body.style.display='block';
+      var badge=document.getElementById('sel-badge'); badge.textContent=id; badge.className='sel-badge'+(id===1?' big':'');
+      setText('sel-size', frac(f.w)+'\u2033 \u00d7 '+frac(f.h)+'\u2033');
+      setText('sel-x', inch(p.x)); setText('sel-y', inch(p.y));
+      setText('g-top', inch(gp.top.gap)); setText('g-top-to', gapToTxt(gp.top));
+      setText('g-bot', inch(gp.bottom.gap)); setText('g-bot-to', gapToTxt(gp.bottom));
+      setText('g-left', inch(gp.left.gap)); setText('g-left-to', gapToTxt(gp.left));
+      setText('g-right', inch(gp.right.gap)); setText('g-right-to', gapToTxt(gp.right));
+    }
+    // summary
+    var minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+    IDS.forEach(function(i){ var r=rectOf(i); if(r.l<minX)minX=r.l; if(r.t<minY)minY=r.t; if(r.r>maxX)maxX=r.r; if(r.b>maxY)maxY=r.b; });
+    setText('s-span', frac(maxX-minX)+'\u2033 \u00d7 '+frac(maxY-minY)+'\u2033');
+    var cs = closestSpacing();
+    var ov = overlapSet();
+    var warn=document.getElementById('s-warn'), ok=document.getElementById('s-ok');
+    if(ov.size>0){
+      setText('s-min','overlap');
+      document.getElementById('s-warn-txt').textContent = (ov.size)+' frames overlapping \u2014 move them apart';
+      warn.classList.add('show'); ok.classList.remove('show');
+    } else {
+      setText('s-min', frac(cs)+'\u2033');
+      warn.classList.remove('show'); ok.classList.add('show');
+    }
+    // table
+    var tb=document.getElementById('allpos-body'); tb.innerHTML='';
+    IDS.forEach(function(i){
+      var f=FR[i], p=pos[i];
+      var tr=document.createElement('tr'); if(i===selected) tr.className='active';
+      tr.innerHTML = '<td class="idc"><span class="dot'+(i===1?' big':'')+'"></span>'+i+'</td>'+
+                     '<td>'+frac(p.x)+'\u2033</td><td>'+frac(p.y)+'\u2033</td>'+
+                     '<td>'+frac(f.w)+'\u00d7'+frac(f.h)+'</td>';
+      tr.addEventListener('click', function(){ selected=i; renderAll(); });
+      tb.appendChild(tr);
+    });
+  }
+
+  // ---- master render ----
+  function renderAll(){ updateFrames(); renderOverlay(); renderSidebar(); }
+
+  // ---- snapping ----
+  function snap(id, nx, ny){
+    activeGuides = [];
+    var f = FR[id], tol = 8/PXIN;
+    // build target lines from other frames + wall
+    var xs=[{v:0},{v:WIN},{v:WIN/2}], ys=[{v:0},{v:HIN},{v:HIN/2}];
+    IDS.forEach(function(j){ if(j===id) return; var r=rectOf(j);
+      xs.push({v:r.l},{v:r.r},{v:(r.l+r.r)/2}); ys.push({v:r.t},{v:r.b},{v:(r.t+r.b)/2}); });
+    if(snapAlign){
+      var anchorsX=[{a:nx},{a:nx+f.w},{a:nx+f.w/2}];
+      var bestdx=null, bx=null;
+      anchorsX.forEach(function(an){ xs.forEach(function(t){ var d=t.v-an.a; if(Math.abs(d)<=tol && (bestdx===null||Math.abs(d)<Math.abs(bestdx))){ bestdx=d; bx=t.v; } }); });
+      if(bestdx!==null){ nx += bestdx; activeGuides.push({axis:'x', v:bx}); }
+      var anchorsY=[{a:ny},{a:ny+f.h},{a:ny+f.h/2}];
+      var bestdy=null, by=null;
+      anchorsY.forEach(function(an){ ys.forEach(function(t){ var d=t.v-an.a; if(Math.abs(d)<=tol && (bestdy===null||Math.abs(d)<Math.abs(bestdy))){ bestdy=d; by=t.v; } }); });
+      if(bestdy!==null){ ny += bestdy; activeGuides.push({axis:'y', v:by}); }
+    }
+    if(snapGrid){
+      if(!activeGuides.some(function(g){return g.axis==='x';})) nx = Math.round(nx*4)/4;
+      if(!activeGuides.some(function(g){return g.axis==='y';})) ny = Math.round(ny*4)/4;
+    }
+    nx = clamp(nx, 0, WIN-f.w); ny = clamp(ny, 0, HIN-f.h);
+    return {x:nx, y:ny};
+  }
+
+  // ---- drag ----
+  function onDown(e){
+    var id = +e.currentTarget.getAttribute('data-id');
+    selected = id; dragId = id;
+    e.currentTarget.classList.add('dragging');
+    var wr = wall.getBoundingClientRect();
+    grabDX = (e.clientX - wr.left) - pos[id].x*PXIN;
+    grabDY = (e.clientY - wr.top)  - pos[id].y*PXIN;
+    try{ e.currentTarget.setPointerCapture(e.pointerId); }catch(err){}
+    e.preventDefault();
+    renderAll();
+  }
+  function onMove(e){
+    if(dragId===null) return;
+    var wr = wall.getBoundingClientRect();
+    var nx = ((e.clientX - wr.left) - grabDX)/PXIN;
+    var ny = ((e.clientY - wr.top)  - grabDY)/PXIN;
+    var sn = snap(dragId, nx, ny);
+    pos[dragId].x = sn.x; pos[dragId].y = sn.y;
+    renderAll();
+  }
+  function onUp(e){
+    if(dragId===null) return;
+    if(frameEls[dragId]) frameEls[dragId].el.classList.remove('dragging');
+    dragId = null; activeGuides = [];
+    renderAll();
+  }
+  window.addEventListener('pointermove', onMove, {passive:false});
+  window.addEventListener('pointerup', onUp);
+  window.addEventListener('pointercancel', onUp);
+
+  // click empty wall to deselect
+  wall.addEventListener('pointerdown', function(e){ if(e.target===wall || e.target===overlay){ selected=null; renderAll(); } });
+
+  // ---- keyboard nudge ----
+  window.addEventListener('keydown', function(e){
+    if(selected===null) return;
+    var step = e.shiftKey?1:0.25, moved=true, p=pos[selected], f=FR[selected];
+    if(e.key==='ArrowLeft') p.x=clamp(p.x-step,0,WIN-f.w);
+    else if(e.key==='ArrowRight') p.x=clamp(p.x+step,0,WIN-f.w);
+    else if(e.key==='ArrowUp') p.y=clamp(p.y-step,0,HIN-f.h);
+    else if(e.key==='ArrowDown') p.y=clamp(p.y+step,0,HIN-f.h);
+    else moved=false;
+    if(moved){ e.preventDefault(); renderAll(); }
+  });
+
+  // ---- zoom ----
+  function setZoom(px){
+    PXIN = clamp(px, 4.5, 12);
+    document.getElementById('zval').textContent = Math.round(PXIN/7*100)+'%';
+    sizeWall(); buildRulers(); renderAll();
+  }
+  document.getElementById('zin').addEventListener('click', function(){ manualZoom=true; setZoom(PXIN+0.75); });
+  document.getElementById('zout').addEventListener('click', function(){ manualZoom=true; setZoom(PXIN-0.75); });
+
+  // ---- toolbar ----
+  Array.prototype.forEach.call(document.querySelectorAll('[data-preset]'), function(b){
+    b.addEventListener('click', function(){ selected=null; applyPreset(b.getAttribute('data-preset')); });
+  });
+  document.getElementById('flip').addEventListener('click', flip);
+  document.getElementById('reset').addEventListener('click', function(){ selected=null; applyPreset(currentPreset); });
+  document.getElementById('t-snap').addEventListener('change', function(e){ snapAlign=e.target.checked; });
+  document.getElementById('t-grid').addEventListener('change', function(e){ snapGrid=e.target.checked; });
+  document.getElementById('t-meas').addEventListener('change', function(e){ showMeas=e.target.checked; renderOverlay(); });
+
+  // ---- init ----
+  function fitZoom(){
+    var avail = Math.min((window.innerWidth||1000) - 56, 820);
+    return clamp(avail/WIN, 5.0, 8.0);
+  }
+  buildFrames();
+  PXIN = fitZoom();
+  document.getElementById('zval').textContent = Math.round(PXIN/7*100)+'%';
+  sizeWall(); buildRulers();
+  applyPreset('cascade');
+
+  window.addEventListener('resize', function(){
+    if(manualZoom) return;
+    PXIN = fitZoom();
+    document.getElementById('zval').textContent = Math.round(PXIN/7*100)+'%';
+    sizeWall(); buildRulers(); renderAll();
+  });
+})();
+</script>
+</body>
+</html>
